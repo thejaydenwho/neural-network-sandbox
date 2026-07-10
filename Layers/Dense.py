@@ -8,11 +8,11 @@ class Dense(Layer):
         self.n_inputs = n_inputs
         self.n_outputs = n_outputs
         self.parameters = []
-        if weights == None:
+        if weights is None:
             self.weights = Parameter(0.1 * np.random.randn(n_inputs, n_outputs), None)
         else:
             self.weights = Parameter(weights, None)
-        if biases == None:
+        if biases is None:
             self.biases = Parameter(0.1 * np.random.randn(n_outputs), None)
         else:
             self.biases = Parameter(biases, None)
