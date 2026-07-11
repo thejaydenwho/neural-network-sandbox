@@ -72,12 +72,14 @@ class MaxPool2D(Layer):
 
         return self.outputs
 
-
     def backward(self, output_gradient):
 
-        output_gradient = output_gradient.astype(np.float32, copy=False)
+        output_gradient = output_gradient.astype(
+            np.float32,
+            copy=False
+        )
 
-        batch_size, input_height, input_width, channels = self.inputs.shape
+        batch_size, _, _, channels = self.inputs.shape
 
         pool_height, pool_width = self.pool_size
         stride_height, stride_width = self.stride
@@ -85,30 +87,43 @@ class MaxPool2D(Layer):
         output_height = output_gradient.shape[1]
         output_width = output_gradient.shape[2]
 
+
         input_gradient = np.zeros_like(
             self.inputs,
             dtype=np.float32
         )
 
-        # Convert flattened max index back to coordinates
+
+        # max position inside pooling window
         max_y = self.max_indices // pool_width
         max_x = self.max_indices % pool_width
 
 
-        # Scatter gradients back
-        for b in range(batch_size):
-            for y in range(output_height):
-                for x in range(output_width):
-                    for c in range(channels):
+        # absolute coordinates
+        y_base = (
+            np.arange(output_height)[None,:,None,None]
+            * stride_height
+        )
 
-                        iy = y * stride_height + max_y[b,y,x,c]
-                        ix = x * stride_width + max_x[b,y,x,c]
+        x_base = (
+            np.arange(output_width)[None,None,:,None]
+            * stride_width
+        )
 
-                        input_gradient[
-                            b,
-                            iy,
-                            ix,
-                            c
-                        ] += output_gradient[b,y,x,c]
 
-        return input_gradient.astype(np.float32)
+        iy = y_base + max_y
+        ix = x_base + max_x
+
+
+        b = np.arange(batch_size)[:,None,None,None]
+        c = np.arange(channels)[None,None,None,:]
+
+
+        np.add.at(
+            input_gradient,
+            (b, iy, ix, c),
+            output_gradient
+        )
+
+
+        return input_gradient

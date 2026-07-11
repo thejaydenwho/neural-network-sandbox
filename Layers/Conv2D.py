@@ -1,94 +1,299 @@
 import numpy as np
-import math 
+import math
+from numpy.lib.stride_tricks import sliding_window_view
 from Base import *
 
+
 class Conv2D(Layer):
-    def __init__(self, in_channels, out_channels, kernel_size, kernel_weights = None, kernel_biases = None, stride=(1,1), padding=(1,1), seed = None):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        kernel_size,
+        kernel_weights=None,
+        kernel_biases=None,
+        stride=(1,1),
+        padding=(1,1),
+        seed=None
+    ):
         self.inputs = None
         self.outputs = None
+
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
+
         self.rng = np.random.default_rng(seed)
+
         self.parameters = []
+
+        kh, kw = kernel_size
+
         if kernel_weights is None:
-            (kernel_height, kernel_width) = kernel_size
-            self.kernel_weights = Parameter(self.rng.normal(loc=0.0, scale=0.1, size=(out_channels, kernel_height, kernel_width, in_channels)).astype(np.float32), None)
+            self.kernel_weights = Parameter(
+                self.rng.normal(
+                    0,
+                    0.1,
+                    size=(out_channels, kh, kw, in_channels)
+                ).astype(np.float32),
+                None
+            )
         else:
-            self.kernel_weights = Parameter(np.asarray(kernel_weights, dtype=np.float32), None)
+            self.kernel_weights = Parameter(
+                np.asarray(kernel_weights, dtype=np.float32),
+                None
+            )
+
         if kernel_biases is None:
-            self.kernel_biases = Parameter(self.rng.normal(loc=0.0, scale=0.1, size=(out_channels)).astype(np.float32), None)
+            self.kernel_biases = Parameter(
+                self.rng.normal(
+                    0,
+                    0.1,
+                    size=(out_channels,)
+                ).astype(np.float32),
+                None
+            )
         else:
-            self.kernel_biases = Parameter(np.asarray(kernel_biases, dtype=np.float32), None)
+            self.kernel_biases = Parameter(
+                np.asarray(kernel_biases, dtype=np.float32),
+                None
+            )
+
         self.parameters.append(self.kernel_weights)
-        self.parameters.append(self.kernel_biases)    
+        self.parameters.append(self.kernel_biases)
+
+
 
     def im2col(self):
-        (self.batch_size, self.input_height, self.input_width, _) = self.inputs.shape
-        (kernel_height, kernel_width) = self.kernel_size
-        (pad_height, pad_width) = self.padding
-        (stride_height, stride_width) = self.stride
-        self.padded_inputs = np.pad(self.inputs, ((0,0), (pad_height, pad_height), (pad_width, pad_width), (0,0)), mode="constant")
-        self.output_height = math.floor((self.input_height + (2 * pad_height) - kernel_height)/stride_height) + 1
-        self.output_width = math.floor((self.input_width + (2 * pad_width) - kernel_width)/stride_width) + 1
-        patches = []
-        for image in self.padded_inputs:
-            for y in range(self.output_height):
-                for x in range(self.output_width):
-                    input_y = y * stride_height
-                    input_x = x * stride_width
-                    patch = image[input_y:input_y+kernel_height, input_x:input_x+kernel_width, :]
-                    patches.append(patch)
-        self.patch_matrix = np.reshape(np.asarray(patches), (len(patches),-1))
-        return self.patch_matrix
-        
-    def col2im(self, dX_col):
-        (kernel_height, kernel_width) = self.kernel_size
-        (pad_height, pad_width) = self.padding
-        (stride_height, stride_width) = self.stride 
-        dX_padded = np.zeros(self.padded_inputs.shape, dtype=self.padded_inputs.dtype)
-        patch_index = 0
-        for b in range(self.batch_size):
-            for y in range(self.output_height):
-                for x in range(self.output_width):
-                    input_y = y * stride_height
-                    input_x = x * stride_width
-                    # convert back flattened patch
-                    patch = dX_col[patch_index].reshape(kernel_height, kernel_width, self.in_channels)
-                    # ADD patches since they overlap
-                    dX_padded[b, input_y: input_y+kernel_height, input_x: input_x+kernel_width, :] += patch
-                    patch_index += 1
-        h_end = -pad_height if pad_height > 0 else None
-        w_end = -pad_width if pad_width > 0 else None
-        dX = dX_padded[:, pad_height:h_end, pad_width:w_end, :]
-        return dX
-            
-    def forward(self, inputs):
-        self.inputs = np.asarray(inputs, dtype=np.float32)
-        self.im2col()
-        kernel_weights = self.kernel_weights.value
-        kernel_biases = self.kernel_biases.value
-        kernel_weight_matrix = np.reshape(kernel_weights, (self.out_channels,-1))
-        output_matrix = self.patch_matrix @ kernel_weight_matrix.T + kernel_biases
-        outputs = np.reshape(output_matrix, (self.batch_size, self.output_height, self.output_width, self.out_channels))
-        self.outputs = outputs
-        return outputs
-    
-    def backward(self, output_gradient):
-        (kernel_height, kernel_width) = self.kernel_size
-        kernel_weights = self.kernel_weights.value
-        kernel_weight_matrix = np.reshape(kernel_weights, (self.out_channels,-1))
-        output_gradient_matrix = np.reshape(output_gradient, (-1, self.out_channels))
-        dW_matrix = output_gradient_matrix.T @ self.patch_matrix
-        # sum by columns (add all the values in each out channel)
-        db = np.sum(output_gradient_matrix, axis=0, dtype=np.float32)
-        dX_col = output_gradient_matrix @ kernel_weight_matrix
-        self.kernel_weights.gradient = np.reshape(dW_matrix, (self.out_channels, kernel_height, kernel_width, self.in_channels))
-        self.kernel_biases.gradient = db
-        return self.col2im(dX_col)
 
+        batch, height, width, channels = self.inputs.shape
+
+        kh, kw = self.kernel_size
+        ph, pw = self.padding
+        sh, sw = self.stride
+
+
+        padded = np.pad(
+            self.inputs,
+            (
+                (0,0),
+                (ph,ph),
+                (pw,pw),
+                (0,0)
+            ),
+            mode="constant"
+        ).astype(np.float32)
+
+
+        self.padded_inputs = padded
+
+
+        windows = sliding_window_view(
+            padded,
+            (kh,kw),
+            axis=(1,2)
+        )
+
+
+        # Apply stride
+        windows = windows[
+            :,
+            ::sh,
+            ::sw,
+            :,
+            :,
+            :
+        ]
+
+
+        self.output_height = windows.shape[1]
+        self.output_width = windows.shape[2]
+
+
+        # 
+        # before:
+        # (batch, out_h, out_w, channels, kh, kw)
+        #
+        # after:
+        # (batch, out_h, out_w, kh, kw, channels)
+        #
+
+        windows = windows.transpose(
+            0,1,2,4,5,3
+        )
+
+
+        self.patch_matrix = windows.reshape(
+            -1,
+            kh * kw * channels
+        ).astype(np.float32)
+
+
+        return self.patch_matrix
+    
+    def col2im(self, dX_col):
+
+        kh, kw = self.kernel_size
+        ph, pw = self.padding
+        sh, sw = self.stride
+
+        dX_padded = np.zeros_like(
+            self.padded_inputs,
+            dtype=np.float32
+        )
+
+        # number of patches
+        N = self.batch_size * self.output_height * self.output_width
+
+        # reshape patches back
+        patches = dX_col.reshape(
+            self.batch_size,
+            self.output_height,
+            self.output_width,
+            kh,
+            kw,
+            self.in_channels
+        )
+
+        # Create starting coordinates of each patch
+        y_positions = (
+            np.arange(self.output_height) * sh
+        )
+
+        x_positions = (
+            np.arange(self.output_width) * sw
+        )
+
+
+        for c in range(self.in_channels):
+
+            for ky in range(kh):
+
+                for kx in range(kw):
+
+                    ys = y_positions + ky
+                    xs = x_positions + kx
+
+                    dX_padded[
+                        :,
+                        ys[:,None],
+                        xs[None,:],
+                        c
+                    ] += patches[
+                        :,
+                        :,
+                        :,
+                        ky,
+                        kx,
+                        c
+                    ]
+
+
+        h_end = -ph if ph > 0 else None
+        w_end = -pw if pw > 0 else None
+
+        return dX_padded[
+            :,
+            ph:h_end,
+            pw:w_end,
+            :
+        ]
+
+
+
+    def forward(self, inputs):
+
+        self.inputs = np.asarray(
+            inputs,
+            dtype=np.float32
+        )
+
+        self.batch_size = self.inputs.shape[0]
+
+        self.im2col()
+
+
+        W = self.kernel_weights.value.reshape(
+            self.out_channels,
+            -1
+        )
+
+
+        output = (
+            self.patch_matrix @ W.T
+            + self.kernel_biases.value
+        )
+
+
+        self.outputs = output.reshape(
+            self.batch_size,
+            self.output_height,
+            self.output_width,
+            self.out_channels
+        ).astype(np.float32)
+
+
+        return self.outputs
+
+
+
+    def backward(self, output_gradient):
+
+        kh, kw = self.kernel_size
+
+
+        output_gradient = np.asarray(
+            output_gradient,
+            dtype=np.float32
+        )
+
+
+        dY = output_gradient.reshape(
+            -1,
+            self.out_channels
+        )
+
+
+        W = self.kernel_weights.value.reshape(
+            self.out_channels,
+            -1
+        )
+
+
+        # weight gradient
+        dW = dY.T @ self.patch_matrix
+
+
+        # bias gradient
+        db = np.sum(
+            dY,
+            axis=0,
+            dtype=np.float32
+        )
+
+
+        # input gradient
+        dX_col = dY @ W
+
+
+        self.kernel_weights.gradient = dW.reshape(
+            self.out_channels,
+            kh,
+            kw,
+            self.in_channels
+        ).astype(np.float32)
+
+
+        self.kernel_biases.gradient = db.astype(
+            np.float32
+        )
+
+
+        return self.col2im(
+            dX_col
+        )
 
             
 

@@ -4,6 +4,7 @@ from Activations import *
 from Layers import *
 from Loss import *
 from Optimizers import *
+import time
 
 # Import the dataset
 fashion_mnist = tf.keras.datasets.fashion_mnist
@@ -33,21 +34,27 @@ Benchmarker.test(X_test, y_test)
 model = Sequential([
     Conv2D(
         in_channels=1,
-        out_channels=4,
+        out_channels=8,
         kernel_size=(3,3),
-        stride=(1,1),
         padding=(1,1)
     ),
     ReLU(),
 
+    MaxPool2D(),
+
     Flatten(),
 
-    Dense(28*28*4, 10),
+    Dense(14*14*8, 64),
+    ReLU(),
+
+    Dense(64,10),
     Softmax()
 ])
 
 Benchmarker = Trainer(model, CrossEntropy(), MomentumSGD(0.01, 0.9) )
-X_test_small = X_test[:100]
-Benchmarker.test(X_test_small, y_test[:100])
-Benchmarker.train(X_train, y_train, epochs=33)
-Benchmarker.test(X_test_small, y_test[:100])
+Benchmarker.test(X_test, y_test)
+start_time = time.perf_counter()
+Benchmarker.train(X_train, y_train, epochs=50, batch_size=64)
+end_time = time.perf_counter()
+print(end_time - start_time)
+Benchmarker.test(X_test, y_test)
