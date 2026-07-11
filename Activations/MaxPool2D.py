@@ -6,6 +6,8 @@ class MaxPool2D(Layer):
         self.inputs = None
         self.outputs = None
         self.parameters = []
+        self.pool_size = pool_size
+        self.stride = stride
     
     def forward(self, inputs):
         self.inputs = inputs

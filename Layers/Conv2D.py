@@ -36,19 +36,18 @@ class Conv2D(Layer):
         kernel_weights = self.kernel_weights.value
         kernel_biases = self.kernel_biases.value
         outputs = np.zeros((batch_size, output_height, output_width, self.out_channels))
-        image_index = 0
-        for image in padded_inputs:
-            kernel_index = 0
-            for kernel_weight, kernel_bias in zip(kernel_weights, kernel_biases):
-                for y in range(output_height):
-                    for x in range(output_width):
-                        input_y = y * stride_height
-                        input_x = x * stride_width
-                        patch = image[input_y:input_y+kernel_height, input_x:input_x+kernel_width, :]
-                        value = np.sum(patch * kernel_weight) + kernel_bias
-                        outputs[image_index, y, x, kernel_index] = value
-                kernel_index += 1
-            image_index += 1
+        patches = []
+        for (image_index, image) in enumerate(padded_inputs):
+            for y in range(output_height):
+                for x in range(output_width):
+                    input_y = y * stride_height
+                    input_x = x * stride_width
+                    patch = image[input_y:input_y+kernel_height, input_x:input_x+kernel_width, :]
+                    patches.append(patch)
+        patch_matrix = np.reshape(np.array(patches), (len(patches),-1))
+        kernel_weight_matrix = np.reshape(kernel_weights, (self.out_channels,-1))
+        output_matrix = patch_matrix @ kernel_weight_matrix.T + kernel_biases
+        outputs = np.reshape(output_matrix, (batch_size, output_height, output_width, self.out_channels))
         self.outputs = outputs
         return outputs
     
