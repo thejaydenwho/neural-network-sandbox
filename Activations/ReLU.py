@@ -8,10 +8,12 @@ class ReLU(Layer):
         self.parameters = []
 
     def forward(self, inputs):
-        self.inputs = inputs
-        self.outputs = np.maximum(inputs,0)
+        self.inputs = np.asarray(inputs, dtype=np.float32)
+        self.outputs = np.maximum(inputs,0.0)
         return self.outputs
     
     def backward(self, output_gradient):
-        return output_gradient * (self.inputs > 0)
+        output_gradient = np.asarray(output_gradient, dtype=np.float32)
+        relu_mask = (self.inputs > 0).astype(np.float32)
+        return output_gradient * relu_mask
     

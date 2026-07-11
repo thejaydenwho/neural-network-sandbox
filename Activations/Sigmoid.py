@@ -8,9 +8,11 @@ class Sigmoid(Layer):
         self.parameters = []
     
     def forward(self, inputs):
-        self.inputs = inputs
-        self.outputs =  1/(1 + np.exp(-np.clip(inputs,-500,500)))
-        return self.outputs
+        self.inputs = np.asarray(inputs, dtype=np.float32)
+        clipped_inputs = np.clip(self.inputs, np.float32(-500.0), np.float32(500.0))
+        self.outputs = np.float32(1.0) / (np.float32(1.0) + np.exp(-clipped_inputs))
+        return self.outputs 
     
     def backward(self, output_gradient):
-        return output_gradient * (self.outputs * (1- self.outputs))
+        output_gradient = np.asarray(output_gradient, dtype=np.float32)
+        return output_gradient * (self.outputs * (np.float32(1.0) - self.outputs))

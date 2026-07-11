@@ -49,5 +49,5 @@ model = Sequential([
 Benchmarker = Trainer(model, CrossEntropy(), MomentumSGD(0.01, 0.9) )
 X_test_small = X_test[:100]
 Benchmarker.test(X_test_small, y_test[:100])
-Benchmarker.train(X_train[:200], y_train[:200], epochs=33)
+Benchmarker.train(X_train, y_train, epochs=33)
 Benchmarker.test(X_test_small, y_test[:100])
