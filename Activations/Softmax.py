@@ -7,7 +7,7 @@ class Softmax(Layer):
         self.outputs = None 
         self.parameters = [] 
 
-    def forward(self, inputs): 
+    def forward(self, inputs, training=None): 
         self.inputs = np.asarray(inputs, dtype=np.float32)
         shift_inputs = self.inputs - np.max(self.inputs, axis=1, keepdims=True, initial=None)
         exp_values = np.exp(shift_inputs)

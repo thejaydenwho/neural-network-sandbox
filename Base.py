@@ -1,4 +1,6 @@
 import numpy as np
+import pandas as pd
+import csv 
 
 class Parameter:
     def __init__(self, value, gradient):
@@ -32,11 +34,11 @@ class Sequential:
         # Adds a new layer to the end of our neural network
         self.layers.append(layer)
     
-    def forward(self, inputs):
+    def forward(self, inputs, training=True):
         # Passes the data forward through every layer in order
         current_signal = inputs
         for layer in self.layers:
-            current_signal = layer.forward(current_signal)
+            current_signal = layer.forward(current_signal, training)
         return current_signal
     
     def backward(self, output_gradient):
@@ -76,9 +78,12 @@ class Trainer:
         return np.sum(preds == true) / len(true)
 
 
-    def train(self, X, y, epochs=10, batch_size=32):
+    def train(self, X, y, epochs=10, batch_size=32, csv_file="training_log.csv"):
+        csv_file = "TrainingData/"+csv_file
+        with open(csv_file, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Epoch", "Loss", "Accuracy"])
         for epoch in range(epochs):
-
             loss_sum = 0
             correct = 0
             total = 0
@@ -108,12 +113,21 @@ class Trainer:
                 self.sequential.backward(grad)
                 self.optimizer.update_model(self.sequential)
                 self.sequential.zero_gradients()
-
-            print(f"Epoch {epoch} Loss: {loss_sum / (len(X)//batch_size)}")
-            print(f"Epoch {epoch} Accuracy: {correct / total}")
+            
+            epoch_loss = loss_sum / (len(X)//batch_size)
+            epoch_accuracy = correct / total
+            with open(csv_file, "a", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    epoch,
+                    epoch_loss,
+                    epoch_accuracy
+                ])
+            print(f"Epoch {epoch} Loss: {epoch_loss}")
+            print(f"Epoch {epoch} Accuracy: {epoch_accuracy}")
     
     def test(self, X, y):
-        y_pred = self.sequential.forward(X)
+        y_pred = self.sequential.forward(X, training=False)
         loss = self.loss_function.forward(y_pred, y)
         accuracy = self.accuracy(y_pred, y)
         print(f"Loss: {loss}")

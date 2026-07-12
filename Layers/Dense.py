@@ -20,12 +20,13 @@ class Dense(Layer):
         self.parameters.append(self.weights)
         self.parameters.append(self.biases)
 
-    def forward(self, inputs):
+    def forward(self, inputs, training=None):
         self.inputs = np.array(inputs, dtype=np.float32)
         self.outputs = np.dot(self.inputs, self.weights.value) + self.biases.value
         return self.outputs
     
     def backward(self, output_gradient):
+        output_gradient = np.asarray(output_gradient, dtype=np.float32)
         dX = output_gradient @ self.weights.value.T
         dW = self.inputs.T @ output_gradient
         db = np.sum(output_gradient, axis=0, dtype=np.float32)

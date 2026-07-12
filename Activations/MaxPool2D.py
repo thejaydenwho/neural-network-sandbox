@@ -13,7 +13,7 @@ class MaxPool2D(Layer):
 
         self.max_indices = None
 
-    def forward(self, inputs):
+    def forward(self, inputs, training=None):
         # keep float32
         inputs = inputs.astype(np.float32, copy=False)
 

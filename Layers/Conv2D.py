@@ -203,7 +203,7 @@ class Conv2D(Layer):
 
 
 
-    def forward(self, inputs):
+    def forward(self, inputs, training=None):
 
         self.inputs = np.asarray(
             inputs,

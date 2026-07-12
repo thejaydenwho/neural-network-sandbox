@@ -7,7 +7,7 @@ class Flatten(Layer):
         self.outputs = None
         self.parameters = []
 
-    def forward(self, inputs):
+    def forward(self, inputs, training=None):
         self.inputs = np.asarray(inputs, dtype=np.float32)
         batch_size = self.inputs.shape[0]
         self.outputs = np.reshape(inputs, (batch_size, -1))

@@ -32,29 +32,44 @@ Benchmarker.train(X_train, y_train, 100, 32)
 Benchmarker.test(X_test, y_test)
 '''
 model = Sequential([
-    Conv2D(
-        in_channels=1,
-        out_channels=8,
-        kernel_size=(3,3),
-        padding=(1,1)
-    ),
+    Conv2D(1, 16, (3,3), padding=(1,1)),
+    ReLU(),
+
+    Conv2D(16, 16, (3,3), padding=(1,1)),
+    ReLU(),
+
+    MaxPool2D(),
+
+    Conv2D(16, 32, (3,3), padding=(1,1)),
     ReLU(),
 
     MaxPool2D(),
 
     Flatten(),
 
-    Dense(14*14*8, 64),
+    Dropout(0.3),
+
+    Dense(7*7*32, 128),
     ReLU(),
 
-    Dense(64,10),
+    Dropout(0.3),
+
+    Dense(128, 10),
     Softmax()
 ])
 
-Benchmarker = Trainer(model, CrossEntropy(), MomentumSGD(0.01, 0.9) )
-Benchmarker.test(X_test, y_test)
+Benchmarker1 = Trainer(model, CrossEntropy(), Adam())
+Benchmarker1.test(X_test, y_test)
 start_time = time.perf_counter()
-Benchmarker.train(X_train, y_train, epochs=50, batch_size=64)
+Benchmarker1.train(X_train, y_train, epochs=30, batch_size=64, csv_file="Adam_Training.csv")
 end_time = time.perf_counter()
 print(end_time - start_time)
-Benchmarker.test(X_test, y_test)
+Benchmarker1.test(X_test, y_test)
+
+Benchmarker2 = Trainer(model, CrossEntropy(), MomentumSGD())
+Benchmarker2.test(X_test, y_test)
+start_time = time.perf_counter()
+Benchmarker2.train(X_train, y_train, epochs=30, batch_size=64, csv_file="MomentumSGD_Training.csv")
+end_time = time.perf_counter()
+print(end_time - start_time)
+Benchmarker2.test(X_test, y_test)

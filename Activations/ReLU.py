@@ -7,7 +7,7 @@ class ReLU(Layer):
         self.outputs = None
         self.parameters = []
 
-    def forward(self, inputs):
+    def forward(self, inputs, training=None):
         self.inputs = np.asarray(inputs, dtype=np.float32)
         self.outputs = np.maximum(inputs,0.0)
         return self.outputs

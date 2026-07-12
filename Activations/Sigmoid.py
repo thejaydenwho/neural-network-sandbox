@@ -7,7 +7,7 @@ class Sigmoid(Layer):
         self.outputs = None
         self.parameters = []
     
-    def forward(self, inputs):
+    def forward(self, inputs, training=None):
         self.inputs = np.asarray(inputs, dtype=np.float32)
         clipped_inputs = np.clip(self.inputs, np.float32(-500.0), np.float32(500.0))
         self.outputs = np.float32(1.0) / (np.float32(1.0) + np.exp(-clipped_inputs))
